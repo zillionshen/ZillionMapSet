@@ -33,6 +33,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <math.h>
 
 using namespace std;
+#if _DEBUG||DEBUG
+#define debug_print_member_count() \
+{\
+    /*printf("\tmember count: %lu\n", m_count); */\
+}
+#else
+#define debug_print_member_count()
+#endif
 
 namespace Zillion
 {
@@ -67,21 +75,23 @@ namespace Zillion
         bool m_copied;
     public:
         Block(const Byte * buffer, UInt size) { m_buffer = const_cast<Byte *>(buffer); m_size = size; m_copied = false; }
-        Block(const Block & right) { m_buffer = right.m_buffer; m_size = right.m_size; m_copied = false; }
+        Block(Block & right) { m_buffer = right.m_buffer; m_size = right.m_size; m_copied = right.m_copied; right.m_copied = false; }
         ~Block() { clear(); }
         INLINE void clear() { if (m_copied) delete m_buffer; m_buffer = NULL; m_size = 0; m_copied = false; }
         INLINE void transfer(Block & right) { clear(); m_buffer = right.m_buffer; m_size = right.m_size; m_copied = right.m_copied; right.m_copied = false; }
         INLINE Byte * buffer() const { return m_buffer; }
         INLINE UInt size() const { return m_size; }
         INLINE bool operator==(const Block & right) const { return m_size == right.m_size && memcmp(m_buffer, right.m_buffer, m_size) == 0; }
-        INLINE Block * copy() const
+        INLINE Block& copy()
         {
-            Block * block = new Block(NULL, 0);
-            block->m_buffer = new Byte[m_size];
-            memcpy(block->m_buffer, m_buffer, m_size);
-            block->m_size = m_size;
-            block->m_copied = true;
-            return block;
+            if (!m_copied)
+            {
+                Byte * buffer = new Byte[m_size];
+                memcpy(buffer, m_buffer, m_size);
+                m_buffer = buffer;
+                m_copied = true;
+            }
+            return *this;
         }
     };
 
@@ -91,16 +101,16 @@ namespace Zillion
     protected:
         UInt m_index;
         ContainerType * m_container;
-        IteratorBase & assign(const IteratorBase & it) { return *this; }
-        IteratorBase() : m_index(0), m_container(NULL) {}
-        IteratorBase(const IteratorBase & it) : m_index(it.m_index), m_container(it.m_container) {}
-        IteratorBase(UInt index, const ContainerType * container) : m_index(index), m_container(const_cast<ContainerType *>(container)) {}
+        INLINE IteratorBase & assign(const IteratorBase & it) { m_index = it.m_index; m_container = it.m_container; return *this; }
+        INLINE IteratorBase() : m_index(0), m_container(NULL) {}
+        INLINE IteratorBase(const IteratorBase & it) : m_index(it.m_index), m_container(it.m_container) {}
+        INLINE IteratorBase(UInt index, const ContainerType * container) : m_index(index), m_container(const_cast<ContainerType *>(container)) {}
     public: //STL methods
-        bool operator==(const IteratorBase & it) { return m_index == it.m_index && m_container == it.m_container; }
-        bool operator!=(const IteratorBase & it) { return m_index != it.m_index || m_container != it.m_container; }
+        INLINE bool operator==(const IteratorBase & it) { return m_index == it.m_index && m_container == it.m_container; }
+        INLINE bool operator!=(const IteratorBase & it) { return m_index != it.m_index || m_container != it.m_container; }
     public: //Non-STL methods
-        UInt getPosition() { return m_index; }
-        const ContainerType* getContainer() { return m_container; }
+        INLINE UInt getPosition() { return m_index; }
+        INLINE const ContainerType* getContainer() { return m_container; }
     };
 
     template<class ContainerType, class ValueType>
@@ -108,14 +118,14 @@ namespace Zillion
     {
         typedef IteratorBase<ContainerType> Base;
     public:
-        Iterator() : Base(0, NULL) {}
-        Iterator(UInt index, const ContainerType * container) : Base(index, container)  {}
-        Iterator(const Iterator & it) : Base(it) {}
-        ValueType & operator* () { return Base::m_container->getReference(Base::m_index); }
-        Iterator operator++() { Base::m_index = Base::m_container->nextPosition(Base::m_index); return *this; }
-        Iterator operator--() { Base::m_index = Base::m_container->prevPosition(Base::m_index); return *this; }
-        ValueType * operator->() { return &(Base::m_container->getReference(Base::m_index)); }
-        Iterator & operator = (const Iterator & it) { Base::assign(it); return *this; }
+        INLINE Iterator() : Base(0, NULL) {}
+        INLINE Iterator(UInt index, const ContainerType * container) : Base(index, container)  {}
+        INLINE Iterator(const Iterator & it) : Base(it) {}
+        INLINE ValueType & operator* () { return Base::m_container->getReference(Base::m_index); }
+        INLINE Iterator operator++() { Base::m_index = Base::m_container->nextPosition(Base::m_index); return *this; }
+        INLINE Iterator operator--() { Base::m_index = Base::m_container->prevPosition(Base::m_index); return *this; }
+        INLINE ValueType * operator->() { return &(Base::m_container->getReference(Base::m_index)); }
+        INLINE Iterator & operator = (const Iterator & it) { Base::assign(it); return *this; }
     };
 
     template<class ContainerType, class ValueType>
@@ -123,15 +133,15 @@ namespace Zillion
     {
         typedef IteratorBase<ContainerType> Base;
     public:
-        ConstIterator() : Base(0, NULL) {}
-        ConstIterator(UInt index, const ContainerType * container) : Base(index, container)  {}
-        ConstIterator(const Base & it) : Base(it) {}
-        const ValueType & operator* () { return Base::m_container->getReference(Base::m_index); }
-        ConstIterator operator++() { Base::m_index = Base::m_container->nextPosition(Base::m_index); return *this; }
-        ConstIterator operator--() { Base::m_index = Base::m_container->prevPosition(Base::m_index); return *this; }
-        const ValueType * operator->() { return &(Base::m_container->getReference(Base::m_index)); }
-        ConstIterator & operator=(const Iterator<ContainerType, ValueType> & it) { Base::assign(it); return *this; }
-        ConstIterator & operator=(const ConstIterator & it) { Base::assign(it); return *this; }
+        INLINE ConstIterator() : Base(0, NULL) {}
+        INLINE ConstIterator(UInt index, const ContainerType * container) : Base(index, container)  {}
+        INLINE ConstIterator(const Base & it) : Base(it) {}
+        INLINE const ValueType & operator* () { return Base::m_container->getReference(Base::m_index); }
+        INLINE ConstIterator operator++() { Base::m_index = Base::m_container->nextPosition(Base::m_index); return *this; }
+        INLINE ConstIterator operator--() { Base::m_index = Base::m_container->prevPosition(Base::m_index); return *this; }
+        INLINE const ValueType * operator->() { return &(Base::m_container->getReference(Base::m_index)); }
+        INLINE ConstIterator & operator=(const Iterator<ContainerType, ValueType> & it) { Base::assign(it); return *this; }
+        INLINE ConstIterator & operator=(const ConstIterator & it) { Base::assign(it); return *this; }
     };
 
     template<class KeyType, class SlotType = KeyType, class ReturnType = KeyType, class ValueType = KeyType>
@@ -149,23 +159,22 @@ namespace Zillion
         {
             INLINE uint32_t HashBlock(const Byte *data, uint32_t len)
             {	//FNV-1Aa:: http://www.isthe.com/chongo/tech/comp/fnv/
-                uint32_t result = 2166136261U;
+                uint32_t result = UINT32_C(2166136261);
                 for (uint32_t index = 0; index < len; ++index)
                 {
                     result ^= (uint32_t)data[index];
-                    result *= 16777619U;
+                    result *= UINT32_C(16777619);
                 }
                 return result;
             }
             INLINE uint64_t HashBlock(const Byte *data, uint64_t len)
             {	//FNV-1Aa:: http://www.isthe.com/chongo/tech/comp/fnv/
-                uint64_t result = 14695981039346656037ULL;
+                uint64_t result = UINT64_C(14695981039346656037);
                 for (uint64_t index = 0; index < len; ++index)
                 {
                     result ^= (uint64_t)data[index];
-                    result *= 1099511628211ULL;
+                    result *= UINT64_C(1099511628211);
                 }
-                result ^= result >> 32;
                 return result;
             }
             INLINE uint32_t HashInteger(uint32_t key)
@@ -181,13 +190,13 @@ namespace Zillion
 
                 //added by Zillion Shen - begin
                 //reserve EMPTY_SLOT and DELETED_SLOT values
-                static uint32_t shift1[4] = { 0x1FFFFFFF, 0x5FFFFFFD, 0x9FFFFFFB, 0xDFFFFFF9 };
-                static uint32_t shift2[4] = { 0x3FFFFFFE, 0x7FFFFFFC, 0xBFFFFFFA, 0xFFFFFFF8 };
+                static uint32_t shift1[4] = { UINT32_C(0x1FFFFFFF), UINT32_C(0x5FFFFFFD), UINT32_C(0x9FFFFFFB), UINT32_C(0xDFFFFFF9) };
+                static uint32_t shift2[4] = { UINT32_C(0x3FFFFFFE), UINT32_C(0x7FFFFFFC), UINT32_C(0xBFFFFFFA), UINT32_C(0xFFFFFFF8) };
                 switch (key)
                 {
-                case EMPTY_SLOT:
+                case 0:
                     return shift1[originalKey % 4];
-                case DELETED_SLOT:
+                case UINT32_MAX:
                     return shift2[originalKey % 4];
                 default:
                     return key;
@@ -211,13 +220,13 @@ namespace Zillion
 
                 //added by Zillion Shen - begin
                 //reserve EMPTY_SLOT and DELETED_SLOT values
-                static uint64_t shift1[4] = { 0x1FFFFFFFFFFFFFFF, 0x5FFFFFFFFFFFFFFD, 0x9FFFFFFFFFFFFFFB, 0xDFFFFFFFFFFFFFF9 };
-                static uint64_t shift2[4] = { 0x3FFFFFFFFFFFFFFE, 0x7FFFFFFFFFFFFFFC, 0xBFFFFFFFFFFFFFFA, 0xFFFFFFFFFFFFFFF8 };
+                static uint64_t shift1[4] = { UINT64_C(0x1FFFFFFFFFFFFFFF), UINT64_C(0x5FFFFFFFFFFFFFFD), UINT64_C(0x9FFFFFFFFFFFFFFB), UINT64_C(0xDFFFFFFFFFFFFFF9) };
+                static uint64_t shift2[4] = { UINT64_C(0x3FFFFFFFFFFFFFFE), UINT64_C(0x7FFFFFFFFFFFFFFC), UINT64_C(0xBFFFFFFFFFFFFFFA), UINT64_C(0xFFFFFFFFFFFFFFF8) };
                 switch (key)
                 {
                 case 0:
                     return shift1[originalKey % 4];
-                case 18446744073709551615ULL:
+                case UINT64_MAX:
                     return shift2[originalKey % 4];
                 default:
                     return key;
@@ -226,13 +235,13 @@ namespace Zillion
 
                 return key;
             }
-            INLINE UInt operator() (Byte key) { return HashInteger((UInt)(key)); }
-            INLINE UInt operator() (char key) { return HashInteger((UInt)key); }
-            INLINE UInt operator() (wchar_t key) { return HashInteger((UInt)key); }
-            INLINE UInt operator() (int16_t key) { return HashInteger((UInt)key); }
-            INLINE UInt operator() (uint16_t key) { return HashInteger((UInt)key); }
-            INLINE UInt operator() (int32_t key) { return HashInteger((UInt)key); }
-            INLINE UInt operator() (uint32_t key) { return HashInteger((UInt)key); }
+            INLINE UInt operator() (Byte key) { return HashInteger((uint32_t)(key)); }
+            INLINE UInt operator() (char key) { return HashInteger((uint32_t)key); }
+            INLINE UInt operator() (wchar_t key) { return HashInteger((uint32_t)key); }
+            INLINE UInt operator() (int16_t key) { return HashInteger((uint32_t)key); }
+            INLINE UInt operator() (uint16_t key) { return HashInteger((uint32_t)key); }
+            INLINE UInt operator() (int32_t key) { return HashInteger((uint32_t)key); }
+            INLINE UInt operator() (uint32_t key) { return HashInteger((uint32_t)key); }
 
             //data loss when compiled as 32bit but use int64_t and uint64_t keys - compile it as 64bit or use Block
             INLINE UInt operator() (int64_t key) { return HashInteger((UInt)key); }
@@ -357,46 +366,10 @@ namespace Zillion
                 slots = NULL;
             }
         };
-        struct SlotCreater
-        {
-            INLINE SlotType operator() (const Byte & key) { return key; }
-            INLINE SlotType operator() (const char & key) { return key; }
-            INLINE SlotType operator() (const wchar_t & key) { return key; }
-            INLINE SlotType operator() (const int16_t & key) { return key; }
-            INLINE SlotType operator() (const uint16_t & key) { return key; }
-            INLINE SlotType operator() (const int32_t & key) { return key; }
-            INLINE SlotType operator() (const uint32_t & key) { return key; }
-            INLINE SlotType operator() (const int64_t & key) { return key; }
-            INLINE SlotType operator() (const uint64_t & key) { return key; }
-            INLINE SlotType operator() (const Pointer & key) { return key; }
-            INLINE SlotType operator() (const char * key) { char * s = (char *)malloc(strlen(key) + 1); strcpy(s, key); return s; }
-            INLINE SlotType operator() (const wchar_t * key) { wchar_t * s = (wchar_t *)malloc((wcslen(key) + 1) * sizeof(wchar_t)); wcscpy(s, key); return s; }
-            INLINE SlotType operator() (const string & key) { return new string(key); }
-            INLINE SlotType operator() (const wstring & key) { return new wstring(key); }
-            INLINE SlotType operator() (const Block & key) { return key.copy(); }
-            INLINE SlotType operator() (KVPair * keyValue) { return keyValue; }
-        };
-        struct SlotReleaser
-        {
-            INLINE void operator() (Byte * slot) { *slot = DELETED_SLOT; }
-            INLINE void operator() (char * slot) { *slot = DELETED_SLOT; }
-            INLINE void operator() (wchar_t * slot) { *slot = DELETED_SLOT; }
-            INLINE void operator() (int16_t * slot) { *slot = DELETED_SLOT; }
-            INLINE void operator() (uint16_t * slot) { *slot = DELETED_SLOT; }
-            INLINE void operator() (int32_t * slot) { *slot = DELETED_SLOT; }
-            INLINE void operator() (uint32_t * slot) { *slot = DELETED_SLOT; }
-            INLINE void operator() (int64_t * slot) { *slot = DELETED_SLOT; }
-            INLINE void operator() (uint64_t * slot) { *slot = DELETED_SLOT; }
-            INLINE void operator() (Pointer * slot) { *slot = DELETED_SLOT; }
-            INLINE void operator() (char ** slot) { free(*slot); *slot = DELETED_SLOT; }
-            INLINE void operator() (wchar_t ** slot) { free(*slot); *slot = DELETED_SLOT; }
-            INLINE void operator() (string ** slot) { delete * slot; *slot = DELETED_SLOT; }
-            INLINE void operator() (wstring ** slot) { delete * slot; *slot = DELETED_SLOT; }
-            INLINE void operator() (Block ** slot) { delete * slot; *slot = DELETED_SLOT; }
-            INLINE void operator() (KVPair ** slot) { KVKeyKeyReleaser()((*slot)->first); delete * slot; *slot = DELETED_SLOT; }
-        };
         struct KVKeyCreater
-        {
+        {   //copy char * and wchar_t * for so that map can work after the caller releases the them
+            //just return the reference of string, wstring and Block as they will be copied by pair<KeyType,ValueTYpe>()
+            //we need to call Block.copy() so that the buffer map can still work after the caller releases the buffer
             INLINE KeyType operator() (const Byte & key) { return key; }
             INLINE KeyType operator() (const char & key) { return key; }
             INLINE KeyType operator() (const wchar_t & key) { return key; }
@@ -411,7 +384,7 @@ namespace Zillion
             INLINE KeyType operator() (const wchar_t * key) { wchar_t * s = (wchar_t *)malloc((wcslen(key) + 1) * sizeof(wchar_t)); wcscpy(s, key); return s; }
             INLINE KeyType & operator() (const string & key) { return const_cast<string &>(key); }
             INLINE KeyType & operator() (const wstring & key) { return const_cast<wstring &>(key); }
-            INLINE KeyType & operator() (const Block & key) { return *(key.copy()); }
+            INLINE KeyType & operator() (const Block & key) { Block & k = const_cast<Block &>(key); k.copy(); return k; }
         };
         struct KVKeyKeyReleaser
         {
@@ -429,7 +402,45 @@ namespace Zillion
             INLINE void operator() (wchar_t * & key) { free(key); }
             INLINE void operator() (string & key) { }
             INLINE void operator() (wstring & key) { }
-            INLINE void operator() (Block & key) { delete & key; }
+            INLINE void operator() (Block & key) { }
+        };
+        struct SlotCreater
+        {
+            INLINE SlotType operator() (const Byte & key) { return key; }
+            INLINE SlotType operator() (const char & key) { return key; }
+            INLINE SlotType operator() (const wchar_t & key) { return key; }
+            INLINE SlotType operator() (const int16_t & key) { return key; }
+            INLINE SlotType operator() (const uint16_t & key) { return key; }
+            INLINE SlotType operator() (const int32_t & key) { return key; }
+            INLINE SlotType operator() (const uint32_t & key) { return key; }
+            INLINE SlotType operator() (const int64_t & key) { return key; }
+            INLINE SlotType operator() (const uint64_t & key) { return key; }
+            INLINE SlotType operator() (const Pointer & key) { return key; }
+            INLINE SlotType operator() (const char * key) { char * s = (char *)malloc(strlen(key) + 1); strcpy(s, key); return s; }
+            INLINE SlotType operator() (const wchar_t * key) { wchar_t * s = (wchar_t *)malloc((wcslen(key) + 1) * sizeof(wchar_t)); wcscpy(s, key); return s; }
+            INLINE SlotType operator() (const string & key) { return new string(key); }
+            INLINE SlotType operator() (const wstring & key) { return new wstring(key); }
+            INLINE SlotType operator() (const Block & key) { Block * k = new Block(key.buffer(), key.size()); k->copy(); return k; }
+            INLINE SlotType operator() (const KeyType & key, const ValueType & value) { return new KVPair(KVKeyCreater()(key), value); }
+        };
+        struct SlotReleaser
+        {
+            INLINE void operator() (Byte * slot) { *slot = DELETED_SLOT; }
+            INLINE void operator() (char * slot) { *slot = DELETED_SLOT; }
+            INLINE void operator() (wchar_t * slot) { *slot = DELETED_SLOT; }
+            INLINE void operator() (int16_t * slot) { *slot = DELETED_SLOT; }
+            INLINE void operator() (uint16_t * slot) { *slot = DELETED_SLOT; }
+            INLINE void operator() (int32_t * slot) { *slot = DELETED_SLOT; }
+            INLINE void operator() (uint32_t * slot) { *slot = DELETED_SLOT; }
+            INLINE void operator() (int64_t * slot) { *slot = DELETED_SLOT; }
+            INLINE void operator() (uint64_t * slot) { *slot = DELETED_SLOT; }
+            INLINE void operator() (Pointer * slot) { *slot = DELETED_SLOT; }
+            INLINE void operator() (char ** slot) { free(*slot); *slot = DELETED_SLOT; }
+            INLINE void operator() (wchar_t ** slot) { free(*slot); *slot = DELETED_SLOT; }
+            INLINE void operator() (string ** slot) { delete *slot; *slot = DELETED_SLOT; }
+            INLINE void operator() (wstring ** slot) { delete *slot; *slot = DELETED_SLOT; }
+            INLINE void operator() (Block ** slot) { delete *slot; *slot = DELETED_SLOT; }
+            INLINE void operator() (KVPair ** slot) { KVKeyKeyReleaser()((*slot)->first); delete *slot; *slot = DELETED_SLOT; }
         };
         struct Referencer
         {
@@ -469,27 +480,46 @@ namespace Zillion
             INLINE const KeyType & operator() (Block ** slot) const { return ** slot; }
             INLINE const KeyType & operator() (KVPair ** slot) const { return (*slot)->first; }
         };
-
-        static UInt nextPrime(UInt currentPrime)
+        struct SlotToSlotCopier
         {
-            static UInt primes[] =
+            INLINE SlotType operator() (Byte * slot) const { return *slot; }
+            INLINE SlotType operator() (char * slot) const { return *slot; }
+            INLINE SlotType operator() (wchar_t * slot) const { return *slot; }
+            INLINE SlotType operator() (int16_t * slot) const { return *slot; }
+            INLINE SlotType operator() (uint16_t * slot) const { return *slot; }
+            INLINE SlotType operator() (int32_t * slot) const { return *slot; }
+            INLINE SlotType operator() (uint32_t * slot) const { return *slot; }
+            INLINE SlotType operator() (int64_t * slot) const { return *slot; }
+            INLINE SlotType operator() (uint64_t * slot) const { return *slot; }
+            INLINE SlotType operator() (Pointer * slot) const { return *slot; }
+            INLINE SlotType operator() (char ** slot) const { char * s = (char *)malloc(strlen(*slot) + 1); strcpy(s, *slot); return s; }
+            INLINE SlotType operator() (wchar_t ** slot) const { wchar_t * s = (wchar_t *)malloc((wcslen(*slot) + 1) * sizeof(wchar_t)); wcscpy(s, *slot); return s; }
+            INLINE SlotType operator() (string ** slot) const { return new string(**slot); }
+            INLINE SlotType operator() (wstring ** slot) const { return new wstring(**slot); }
+            INLINE SlotType operator() (Block ** slot) const { return (*slot)->copy(); }
+            INLINE SlotType operator() (KVPair ** slot) const { return new pair<KeyType, ValueType>((*slot)->first, (*slot)->second); }
+        };
+
+        static uint32_t nextPrime(uint32_t currentPrime)
+        {
+            static uint32_t primes[] =
             {
-                0ul, 3ul, 7ul, 11ul,
-                23ul, 47ul, 97ul, 197ul,
-                397ul, 797ul, 1597ul, 3191ul,
-                6379ul, 12757ul, 25471ul, 50929ul,
-                101839ul, 203669ul, 407321ul, 814643ul,
-                1629281ul, 3258551ul, 6517097ul, 13034191ul,
-                26068369ul, 52136729ul, 104273459ul, 208546913ul,
-                312820367ul, 469230529ul, 703845773ul, 1055768627ul,
-                1583652929ul, 2375479373ul, 3563219059ul, 4294967295ul
+                UINT32_C(0), UINT32_C(3), UINT32_C(7), UINT32_C(11),
+                UINT32_C(23), UINT32_C(47), UINT32_C(97), UINT32_C(197),
+                UINT32_C(397), UINT32_C(797), UINT32_C(1597), UINT32_C(3191),
+                UINT32_C(6379), UINT32_C(12757), UINT32_C(25471), UINT32_C(50929),
+                UINT32_C(101839), UINT32_C(203669), UINT32_C(407321), UINT32_C(814643),
+                UINT32_C(1629281), UINT32_C(3258551), UINT32_C(6517097), UINT32_C(13034191),
+                UINT32_C(26068369), UINT32_C(52136729), UINT32_C(104273459), UINT32_C(208546913),
+                UINT32_C(312820367), UINT32_C(469230529), UINT32_C(703845773), UINT32_C(1055768627),
+                UINT32_C(1583652929), UINT32_C(2375479373), UINT32_C(3563219059), UINT32_C(4294967295)
             };
 
-            UInt count = sizeof(primes) / sizeof(UInt);
+            uint32_t count = sizeof(primes) / sizeof(uint32_t);
 
             if (currentPrime >= primes[count - 1]) return primes[count - 1];
 
-            UInt l = 0, h = count - 1, mid;
+            uint32_t l = 0, h = count - 1, mid;
             while (l <= h)
             {
                 mid = (l + h) / 2;
@@ -500,7 +530,45 @@ namespace Zillion
 
             return primes[l > h ? l : h];
         }
-        static UInt closestPrime(UInt number)
+        static uint64_t nextPrime(uint64_t currentPrime)
+        {
+            static uint64_t primes[] =
+            {
+                UINT64_C(0), UINT64_C(3), UINT64_C(7), UINT64_C(11),
+                UINT64_C(23), UINT64_C(47), UINT64_C(97), UINT64_C(197),
+                UINT64_C(397), UINT64_C(797), UINT64_C(1597), UINT64_C(3191),
+                UINT64_C(6379), UINT64_C(12757), UINT64_C(25471), UINT64_C(50929),
+                UINT64_C(101839), UINT64_C(203669), UINT64_C(407321), UINT64_C(814643),
+                UINT64_C(1629281), UINT64_C(3258551), UINT64_C(6517097), UINT64_C(13034191),
+                UINT64_C(26068369), UINT64_C(52136729), UINT64_C(104273459), UINT64_C(208546913),
+                UINT64_C(312820367), UINT64_C(469230529), UINT64_C(703845773), UINT64_C(1055768627),
+                UINT64_C(1583652929), UINT64_C(2375479373), UINT64_C(3563219059), UINT64_C(4294967295),
+                UINT64_C(8589934609), UINT64_C(17179869263), UINT64_C(34359738557), UINT64_C(68719477181),
+                UINT64_C(137438954369), UINT64_C(274877908759), UINT64_C(549755817577), UINT64_C(1099511635163),
+                UINT64_C(2199023270333), UINT64_C(4398046540753), UINT64_C(8796093081509), UINT64_C(17592186163021),
+                UINT64_C(35184372326107), UINT64_C(70368744652231), UINT64_C(140737489304509), UINT64_C(281474978609017),
+                UINT64_C(562949957218081), UINT64_C(1125899914436161), UINT64_C(2251799828872339), UINT64_C(4503599657744711),
+                UINT64_C(9007199315489497), UINT64_C(18014398630979027), UINT64_C(36028797261958097), UINT64_C(72057594523916279),
+                UINT64_C(144115189047832573), UINT64_C(288230378095665179), UINT64_C(576460756191330359), UINT64_C(1152921512382660751),
+                UINT64_C(2305843024765321513), UINT64_C(4611686049530643037), UINT64_C(9223372099061286109), UINT64_C(1844674419812257373)
+            };
+
+            uint64_t count = sizeof(primes) / sizeof(uint64_t);
+
+            if (currentPrime >= primes[count - 1]) return primes[count - 1];
+
+            uint64_t l = 0, h = count - 1, mid;
+            while (l <= h)
+            {
+                mid = (l + h) / 2;
+                if (currentPrime == primes[mid]) return primes[mid + 1];
+                else if (currentPrime > primes[mid]) l = mid + 1;
+                else h = mid - 1;
+            }
+
+            return primes[l > h ? l : h];
+        }
+        static uint32_t closestPrime(uint32_t number)
         {
             if (number < 1) return 1;
             else if (number < 4) return number;
@@ -513,6 +581,39 @@ namespace Zillion
             {
                 uint32_t divisor = 3;
                 uint32_t upperLimit = static_cast<uint32_t>(sqrt(static_cast<double>(number)) + 1);
+
+                isPrime = true;
+                while (divisor <= upperLimit)
+                {
+                    if (number % divisor == 0)
+                    {
+                        isPrime = false;
+                        break;
+                    }
+                    divisor += 2;
+                }
+
+                if (isPrime) break;
+                number += 2;
+                if (number % 5 == 0) number += 2;
+            }
+
+            return number;
+        }
+
+        static uint64_t closestPrime(uint64_t number)
+        {
+            if (number < 1) return 1;
+            else if (number < 4) return number;
+            else if (number < 6) return 5;
+
+            if (number % 2 == 0) number++;
+
+            bool isPrime = false;
+            while (!isPrime)
+            {
+                uint64_t divisor = 3;
+                uint64_t upperLimit = static_cast<uint64_t>(sqrt(static_cast<double>(number)) + 1);
 
                 isPrime = true;
                 while (divisor <= upperLimit)
@@ -568,13 +669,22 @@ namespace Zillion
                 newSlots[findKeyOrEmptySlot(newSlots, newCapacity, SlotToKeyMapper()(m_slots + index))] = m_slots[index];
             }
 
-            if (m_slots != NULL) delete m_slots;
+            if (m_slots != NULL) free(m_slots);
             m_slots = newSlots;
             m_capacity = newCapacity;
             m_deletedCount = 0;
         }
-        void expand() { rebuild(nextPrime(m_capacity)); }
-
+        INLINE void expand() { rebuild(nextPrime(m_capacity)); }
+        INLINE void checkCapacity()
+        {
+            if (m_count + m_deletedCount >= (UInt)(m_capacity * REBUILB_THRESHOLD))
+            {
+                if (m_deletedCount != 0 && m_deletedCount >= (UInt)(m_count * REBUILB_THRESHOLD))
+                    rebuild(nextPrime(m_count));
+                else
+                    expand();
+            }
+        }
     public:
         Container(UInt bucketSize = 0)
         {
@@ -594,24 +704,28 @@ namespace Zillion
             for (auto it : right) insert(it);
         }
     public:
+        ~Container()
+        {
+            clear();
+        }
         //STL methods and iterator types - begin
 
         typedef Iterator<Container, ReturnType> iterator;
         typedef ConstIterator<Container, ReturnType> const_iterator;
 
-        Container & operator=(const Container & right)
+        INLINE Container & operator=(const Container & right)
         {
             this->clear();
             for (auto it : right) this->insert(it);
             return *this;
         }
-        Container & operator=(initializer_list<ReturnType> & right)
+        INLINE Container & operator=(initializer_list<ReturnType> & right)
         {
             this->clear();
             for (auto it : right) this->insert(it);
             return *this;
         }
-        bool operator==(const Container & right)
+        INLINE bool operator==(const Container & right)
         {
             int count = 0;
             for (const_iterator it = right.begin(); it != right.end(); ++it)
@@ -622,7 +736,7 @@ namespace Zillion
 
             return count == m_count;
         }
-        bool operator!=(const Container & right)
+        INLINE bool operator!=(const Container & right)
         {
             int count = 0;
             for (const_iterator it = right.begin(); it != right.end(); ++it)
@@ -635,7 +749,7 @@ namespace Zillion
         }
         iterator begin()
         {
-            for (uint32_t i = 0; i < m_capacity; ++i)
+            for (UInt i = 0; i < m_capacity; ++i)
             {
                 if (m_slots[i] != EMPTY_SLOT && m_slots[i] != DELETED_SLOT)
                     return iterator(i, this);
@@ -644,7 +758,7 @@ namespace Zillion
         }
         const_iterator begin() const
         {
-            for (uint32_t i = 0; i < m_capacity; ++i)
+            for (UInt i = 0; i < m_capacity; ++i)
             {
                 if (m_slots[i] != EMPTY_SLOT && m_slots[i] != DELETED_SLOT)
                     return const_iterator(i, this);
@@ -653,7 +767,7 @@ namespace Zillion
         }
         const_iterator cbegin()
         {
-            for (uint32_t i = 0; i < m_capacity; ++i)
+            for (UInt i = 0; i < m_capacity; ++i)
             {
                 if (m_slots[i] != EMPTY_SLOT && m_slots[i] != DELETED_SLOT)
                     return const_iterator(i, this);
@@ -663,37 +777,60 @@ namespace Zillion
         const_iterator cend() { return const_iterator(END_POSITION, this); }
         void clear()
         {
+            debug_print_member_count();
             SlotsReleaser()(m_slots, m_capacity);
             m_slots = NULL;
             m_capacity = 0;
             m_count = 0;
             m_deletedCount = 0;
+            debug_print_member_count();
         }
-        size_t count(const KeyType & key) { return exists(key) ? 1 : 0; }
-        bool empty() { return m_count == 0; }
-        iterator end() { return iterator(END_POSITION, this); }
-        const_iterator end() const { return const_iterator(END_POSITION, this); }
+        INLINE size_t count(const KeyType & key) { return exists(key) ? 1 : 0; }
+        INLINE bool empty() { return m_count == 0; }
+        INLINE iterator end() { return iterator(END_POSITION, this); }
+        INLINE const_iterator end() const { return const_iterator(END_POSITION, this); }
         iterator erase(const_iterator pos)
         {
-            if (pos.getContainer() != this || pos.getPosition() >= m_capacity) return iterator(END_POSITION, this);
-            if (m_slots[pos.getPosition()] == EMPTY_SLOT || m_slots[pos.getPosition()] == DELETED_SLOT) return iterator(END_POSITION, this);
+            debug_print_member_count();
+            if (pos.getContainer() != this || pos.getPosition() >= m_capacity)
+            {
+                debug_print_member_count();
+                return iterator(END_POSITION, this);
+            }
+            if (m_slots[pos.getPosition()] == EMPTY_SLOT || m_slots[pos.getPosition()] == DELETED_SLOT)
+            {
+                debug_print_member_count();
+                return iterator(END_POSITION, this);
+            }
             SlotReleaser()(m_slots + pos.getPosition());
             --m_count;
             ++m_deletedCount;
+            debug_print_member_count();
             return iterator(pos.getPosition(), this);
         }
         size_t erase(const KeyType & key)
         {
+            debug_print_member_count();
             UInt index = findKeyOrEmptySlot(key);
-            if (index == END_POSITION || m_slots[index] == EMPTY_SLOT) return 0;
+            if (index == END_POSITION || m_slots[index] == EMPTY_SLOT)
+            {
+                debug_print_member_count();
+                return 0;
+            }
             SlotReleaser()(m_slots + index);
             --m_count;
             ++m_deletedCount;
+            debug_print_member_count();
             return 1;
         }
         iterator erase(iterator first, iterator last)
         {
-            if (first.getContainer() != this) return end();
+            debug_print_member_count();
+            if (first.getContainer() != this)
+            {
+                debug_print_member_count();
+                return end();
+            }
 
             UInt lastDeletedIndex = END_POSITION;
             UInt firstIndex = first.getPosition();
@@ -711,6 +848,7 @@ namespace Zillion
                 ++first;
                 firstIndex = first.getPosition();
             }
+            debug_print_member_count();
             /* from http ://www.cplusplus.com/:
             Iterators specifying a range within the unordered_set container to be removed : [first, last).i.e., the
             range includes all the elements between first and last, including the element pointed by first but not
@@ -719,21 +857,21 @@ namespace Zillion
             */
             return iterator(nextPosition(lastDeletedIndex), this);
         }
-        iterator find(const KeyType & key)
+        INLINE iterator find(const KeyType & key)
         {
             UInt index = findKeyOrEmptySlot(key);
             if (index == END_POSITION || m_slots[index] == EMPTY_SLOT) return iterator(END_POSITION, this);
             return iterator(index, this);
         }
-        const_iterator find(const KeyType & key) const
+        INLINE const_iterator find(const KeyType & key) const
         {
             UInt index = findKeyOrEmptySlot(key);
             if (index == END_POSITION || m_slots[index] == EMPTY_SLOT) return const_iterator(END_POSITION, this);
             return const_iterator(index, this);
         }
-        iterator insert(iterator first, iterator last) { while (first != last) { fast_insert(*first); ++first; } return --last; }
-        pair<iterator, bool> insert(const KeyType & key) { return pair<iterator, bool>(iterator(fast_insert(key), this), true); }
-        size_t size() { return m_count; }
+        INLINE iterator insert(iterator first, iterator last) { while (first != last) { fast_insert(*first); ++first; } return --last; }
+        INLINE pair<iterator, bool> insert(const KeyType & key) { return pair<iterator, bool>(iterator(fast_insert(key), this), true); }
+        INLINE size_t size() { return m_count; }
         //STL methods and iterator types - end
 
         //Non-STL methods - begin
@@ -760,43 +898,48 @@ namespace Zillion
 
             return (m_slots[currentIndex] == EMPTY_SLOT || m_slots[currentIndex] == DELETED_SLOT) ? END_POSITION : 0;
         }
-        ReturnType & getReference(UInt index) { return Referencer()(m_slots + index); }
-        bool exists(const KeyType & key) 
+        INLINE void insert(const Container & right) { for (auto it : right) fast_insert(it); }
+        INLINE ReturnType & getReference(UInt index) { return Referencer()(m_slots + index); }
+        INLINE bool exists(const KeyType & key)
         {
             UInt index = findKeyOrEmptySlot(key);
             if (index == END_POSITION || m_slots[index] == EMPTY_SLOT) return false;
             return true;
         }
-        UInt fast_insert(const KeyType & key)
+        INLINE UInt fast_insert(const KeyType & key)
         {
-            if (m_count + m_deletedCount >= (uint32_t)(m_capacity * REBUILB_THRESHOLD))
-            {
-                if (m_deletedCount != 0 && m_deletedCount >= (uint32_t)(m_count * REBUILB_THRESHOLD))
-                    rebuild(nextPrime(m_count));
-                else
-                    expand();
-            }
+            debug_print_member_count();
+            checkCapacity();
+
             UInt index = findKeyOrEmptyOrDeletedSlot(key);
-            if (m_slots[index] != DELETED_SLOT && m_slots[index] != EMPTY_SLOT) return index;
-            if (m_slots[index] == DELETED_SLOT) m_deletedCount--;
+            if (m_slots[index] != DELETED_SLOT && m_slots[index] != EMPTY_SLOT)
+            {
+                debug_print_member_count();
+                return index;
+            }
+            if (m_slots[index] == DELETED_SLOT) --m_deletedCount;
             ++m_count;
             m_slots[index] = SlotCreater()(key);
+            debug_print_member_count();
+
             return index;
         }
-        UInt fast_insert(const KeyType & key, const ValueType & value)
+        INLINE UInt fast_insert(const KeyType & key, const ValueType & value)
         {
-            if (m_count + m_deletedCount >= (uint32_t)(m_capacity * REBUILB_THRESHOLD))
-            {
-                if (m_deletedCount != 0 && m_deletedCount >= (uint32_t)(m_count * REBUILB_THRESHOLD))
-                    rebuild(nextPrime(m_count));
-                else
-                    expand();
-            }
+            debug_print_member_count();
+            checkCapacity();
+
             UInt index = findKeyOrEmptyOrDeletedSlot(key);
-            if (m_slots[index] != DELETED_SLOT && m_slots[index] != EMPTY_SLOT) return index;
-            if (m_slots[index] == DELETED_SLOT) m_deletedCount--;
+            if (m_slots[index] != DELETED_SLOT && m_slots[index] != EMPTY_SLOT)
+            {
+                debug_print_member_count();
+                return index;
+            }
+            if (m_slots[index] == DELETED_SLOT) --m_deletedCount;
             ++m_count;
-            m_slots[index] = new pair<KeyType, ValueType>(KVKeyCreater()(key), value);
+            m_slots[index] = SlotCreater()(key, value);
+            debug_print_member_count();
+
             return index;
         }
         //Non-STL methods - end
@@ -835,13 +978,13 @@ namespace Zillion
         typedef Container<Block, Block * > Base;
     public:
         BlockSet(UInt bucketSize = 0) : Base(bucketSize){}
-        size_t count(Byte * buffer, UInt size) { Block block(buffer, size); return Base::count(block); }
-        size_t erase(Byte * buffer, UInt size) { Block block(buffer, size); return Base::erase(block); }
-        iterator find(Byte * buffer, UInt size) { Block block(buffer, size); return Base::find(block); }
-        const_iterator find(Byte * buffer, UInt size) const { Block block(buffer, size); return Base::find(block); }
-        void insert(Byte * buffer, UInt size) { Block block(buffer, size); Base::insert(block); }
-        UInt fast_insert(Byte * buffer, UInt size) { Block block(buffer, size); return Base::fast_insert(block); }
-        bool exists(Byte * buffer, UInt size) { Block block(buffer, size); return Base::exists(block); }
+        INLINE size_t count(Byte * buffer, UInt size) { Block block(buffer, size); return Base::count(block); }
+        INLINE size_t erase(Byte * buffer, UInt size) { Block block(buffer, size); return Base::erase(block); }
+        INLINE iterator find(Byte * buffer, UInt size) { Block block(buffer, size); return Base::find(block); }
+        INLINE const_iterator find(Byte * buffer, UInt size) const { Block block(buffer, size); return Base::find(block); }
+        INLINE void insert(Byte * buffer, UInt size) { Block block(buffer, size); Base::insert(block); }
+        INLINE UInt fast_insert(Byte * buffer, UInt size) { Block block(buffer, size); return Base::fast_insert(block); }
+        INLINE bool exists(Byte * buffer, UInt size) { Block block(buffer, size); return Base::exists(block); }
     };
 
     template<class KeyType, class ValueType>
@@ -850,17 +993,17 @@ namespace Zillion
         typedef Container<KeyType, pair<KeyType, ValueType> *, pair<KeyType, ValueType>, ValueType> Base;
     public:
         Map(UInt bucketSize = 0) : Base(bucketSize){}
-        ValueType & operator[](const KeyType & key) 
-        { 
+        ValueType & operator[](const KeyType & key)
+        {
             typename Base::iterator it = Base::find(key);
             if (it != Base::end()) return (*it).second;
-            
+
             ValueType v;
             typename Base::iterator nit(fast_insert(key, v), this);
             return (*nit).second;
         }
-        ValueType & at(const KeyType & key) 
-        { 
+        ValueType & at(const KeyType & key)
+        {
             typename Base::iterator it = Base::find(key);
             if (it != Base::end()) return (*it).second;
 

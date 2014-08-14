@@ -1177,6 +1177,8 @@ bool Test_MapUpdate()
 
     return true;
 }
+
+
 int main()
 {
     UnitTest ut;
@@ -1217,11 +1219,13 @@ int main()
     ut.AddCase("Test_CopyConstructor", Test_CopyConstructor);
     ut.AddCase("Test_MapUpdate", Test_MapUpdate);
 
-    if (!ut.RunTillFailed())
+    for (int i = 0; i < 1; i++)
     {
-        getchar();
-        return 1;
+        if (!ut.RunTillFailed())
+        {
+            getchar();
+            return 1;
+        }
     }
-
     return 0;
 }
