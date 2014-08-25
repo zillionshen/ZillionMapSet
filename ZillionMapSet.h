@@ -284,6 +284,7 @@ namespace Zillion
             INLINE bool operator() (uint32_t left, uint32_t right) const { return left == right; }
             INLINE bool operator() (int64_t left, int64_t right) const { return left == right; }
             INLINE bool operator() (uint64_t left, uint64_t right) const { return left == right; }
+            INLINE bool operator() (Pointer left, Pointer right) const { return left == right; }
             INLINE bool operator() (const char * left, const char * right) const { return strcmp(left, right) == 0; }
             INLINE bool operator() (const wchar_t * left, const wchar_t * right) const { return wcscmp(left, right) == 0; }
             INLINE bool operator() (const string & left, const string & right) const { return left == right; }
@@ -991,6 +992,24 @@ namespace Zillion
     class Map : public Container<KeyType, pair<KeyType, ValueType> *, pair<KeyType, ValueType>, ValueType>
     {
         typedef Container<KeyType, pair<KeyType, ValueType> *, pair<KeyType, ValueType>, ValueType> Base;
+        struct NullValue
+        {
+            INLINE ValueType operator() (Byte & val) { return 0; }
+            INLINE ValueType operator() (char & val) { return 0; }
+            INLINE ValueType operator() (wchar_t & val) { return 0; }
+            INLINE ValueType operator() (int16_t & val) { return 0; }
+            INLINE ValueType operator() (uint16_t & val) { return 0; }
+            INLINE ValueType operator() (int32_t & val) { return 0; }
+            INLINE ValueType operator() (uint32_t & val) { return 0; }
+            INLINE ValueType operator() (int64_t & val) { return 0; }
+            INLINE ValueType operator() (uint64_t & val) { return 0; }
+            INLINE ValueType operator() (Pointer & val) { return 0; }
+            INLINE ValueType operator() (char *& val) { return 0; }
+            INLINE ValueType operator() (wchar_t *& val) { return 0; }
+            INLINE ValueType operator() (string & val) { return string(); }
+            INLINE ValueType operator() (wstring & val) { return wstring(); }
+            INLINE ValueType operator() (Block & val) { return Block(); }
+        };
     public:
         Map(UInt bucketSize = 0) : Base(bucketSize){}
         ValueType & operator[](const KeyType & key)
@@ -999,7 +1018,7 @@ namespace Zillion
             if (it != Base::end()) return (*it).second;
 
             ValueType v;
-            typename Base::iterator nit(fast_insert(key, v), this);
+            typename Base::iterator nit(fast_insert(key, NullValue()(v)), this);
             return (*nit).second;
         }
         ValueType & at(const KeyType & key)
@@ -1008,7 +1027,7 @@ namespace Zillion
             if (it != Base::end()) return (*it).second;
 
             ValueType v;
-            typename Base::iterator nit(fast_insert(key, v), this);
+            typename Base::iterator nit(fast_insert(key, NullValue()(v)), this);
             return (*nit).second;
         }
         const ValueType & at(const KeyType & key) const { return (*Base::find(key)).second; }

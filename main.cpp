@@ -3,6 +3,8 @@
 #include <time.h>
 #include <iostream>
 #include <map>
+#include <set>
+#include <unordered_set>
 
 using namespace std;
 
@@ -1168,6 +1170,11 @@ bool Test_MapUpdate()
         items[string("key1")] = 0;
         items[string("key1")]++;
         if (items[string("key1")] != 1) return false;
+
+        Zillion::Map<string, string> items2;
+        string & s = items2[string("key1")];
+        s = "new value";
+        if (items2[string("key1")] != "new value") return false;
     }
     catch (exception ex)
     {
