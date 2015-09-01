@@ -1033,5 +1033,6 @@ namespace Zillion
         const ValueType & at(const KeyType & key) const { return (*Base::find(key)).second; }
         UInt insert(const KeyType & key, const ValueType & value) { return Base::fast_insert(key, value); }
         UInt fast_insert(const KeyType & key, const ValueType & value) { return Base::fast_insert(key, value); }
+        //TODO: more methods here
     };
 }
